@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grudziądz → Hearts — VJ loop</title>
+<style>
+  :root { color-scheme: dark; }
+  html,body { margin:0; padding:0; background:#000; overflow:hidden; height:100%; }
+  canvas { display:block; width:100vw; height:100vh; }
+  #hud {
+    position:fixed; left:18px; bottom:16px; z-index:10;
+    font:12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color:#9fb3c8; background:rgba(0,0,0,.55); border:1px solid rgba(159,179,200,.25);
+    border-radius:8px; padding:10px 14px; letter-spacing:.02em;
+    max-width:min(46ch, 60vw); backdrop-filter:blur(6px);
+    transition:opacity .25s ease;
+  }
+  #hud b { color:#ff2d95; font-weight:600; }
+  #hud .k { color:#00e5ff; }
+  #hud.hide { opacity:0; pointer-events:none; }
+  #hud .row { white-space:nowrap; }
+  body.render #hud { display:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="row"><b>GRUDZIĄDZ → HEARTS</b></div>
+  <div class="row"><span class="k">space</span> pause &nbsp; <span class="k">← →</span> speed &nbsp; <span class="k">↑ ↓</span> density</div>
+  <div class="row"><span class="k">1-4</span> palette &nbsp; <span class="k">T</span> trails &nbsp; <span class="k">S</span> size</div>
+  <div class="row"><span class="k">H</span> all hearts &nbsp; <span class="k">G</span> all signs &nbsp; <span class="k">R</span> reshuffle</div>
+  <div class="row"><span class="k">A</span> mic reactive &nbsp; <span class="k">F</span> fullscreen &nbsp; <span class="k">C</span> hide this</div>
+</div>
+<script>
+(() => {
+"use strict";
+
+/* ---------------------------------------------------------------------------
+   Grudziądz granary skyline  ⇄  heart
+   Every sign is one closed outline of N points. The two shapes are resampled
+   to the same point count and index-aligned, so morphing is a straight lerp.
+--------------------------------------------------------------------------- */
+
+const QS     = new URLSearchParams(location.search);
+const RENDER = QS.get("render") === "1";
+const LOOPF  = +(QS.get("frames") || 900);      // frames in one seamless loop
+const SEED0  = +(QS.get("seed") || 20260906);
+
+/* ---------- tiny seeded PRNG ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ---------- shape sources ---------- */
+
+// Row of gabled riverside granaries on the town wall, with the castle tower.
+// Coordinates: x right, y UP. Traversed counter-clockwise.
+const GRANARY = [
+  [0,0],[140,0],[140,14],[138,14],
+  // B6  (right) tall triangular gable
+  [138,74],[121,104],[104,74],
+  // B5  stepped gable
+  [104,62],[104,72],[99,72],[99,82],[96,82],[96,92],[92,92],[92,82],[89,82],[89,72],[84,72],[84,62],
+  // B4  low block carrying the castle tower + spire
+  [84,78],[78,78],[78,112],[80,116],[73,140],[66,116],[68,112],[68,78],[62,78],
+  // B3  triangular gable
+  [62,70],[53,96],[44,70],
+  // B2  stepped gable
+  [44,66],[44,77],[39,77],[39,88],[36,88],[36,98],[30,98],[30,88],[27,88],[27,77],[22,77],[22,66],
+  // B1  triangular gable
+  [22,78],[12,106],[2,78],
+  [2,14],[0,14]
+];
+
+function heartPoints(steps){
+  const p = [];
+  for (let i = 0; i < steps; i++){
+    const t = (i / steps) * Math.PI * 2;
+    const s = Math.sin(t), c = Math.cos(t);
+    p.push([16*s*s*s, 13*c - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)]);
+  }
+  return p;
+}
+
+/* ---------- polygon helpers ---------- */
+function signedArea(p){let a=0;for(let i=0,n=p.length;i<n;i++){const q=p[(i+1)%n];a+=p[i][0]*q[1]-q[0]*p[i][1];}return a/2;}
+function ensureCCW(p){return signedArea(p)<0 ? p.slice().reverse() : p;}
+
+function resample(poly, n){
+  const m = poly.length, seg = [];
+  let total = 0;
+  for (let i = 0; i < m; i++){
+    const a = poly[i], b = poly[(i+1)%m];
+    const d = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    seg.push(d); total += d;
+  }
+  const out = []; let i = 0, acc = 0;
+  for (let k = 0; k < n; k++){
+    const target = total * k / n;
+    while (acc + seg[i] < target && i < m-1){ acc += seg[i]; i++; }
+    const a = poly[i], b = poly[(i+1)%m];
+    const t = seg[i] > 0 ? (target - acc) / seg[i] : 0;
+    out.push([a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t]);
+  }
+  return out;
+}
+
+// centre on bbox, scale so the longest bbox side is `target`
+function normalize(p, target){
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for (const q of p){ if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1]; if(q[1]>y1)y1=q[1]; }
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, s = target / Math.max(x1-x0, y1-y0);
+  return p.map(q => [(q[0]-cx)*s, (q[1]-cy)*s]);
+}
+
+// rotate B's index so corresponding points sit closest to A's
+function alignOffset(A, B){
+  const n = A.length; let best = 0, bestD = Infinity;
+  for (let k = 0; k < n; k++){
+    let d = 0;
+    for (let i = 0; i < n; i += 3){
+      const a = A[i], b = B[(i+k)%n];
+      const dx = a[0]-b[0], dy = a[1]-b[1];
+      d += dx*dx + dy*dy;
+      if (d > bestD) break;
+    }
+    if (d < bestD){ bestD = d; best = k; }
+  }
+  return best;
+}
+
+const NPTS = 256;
+const SHAPE_A = normalize(resample(ensureCCW(GRANARY), NPTS), 1.0);          // sign
+let   SHAPE_B = normalize(resample(ensureCCW(heartPoints(1600)), NPTS), 0.82); // heart
+{
+  const k = alignOffset(SHAPE_A, SHAPE_B);
+  SHAPE_B = SHAPE_B.slice(k).concat(SHAPE_B.slice(0, k));
+}
+
+/* ---------- palettes (neon on black) ---------- */
+const PALETTES = [
+  { name:"vistula",  cols:[[255,45,149],[0,229,255],[177,74,255],[255,231,76]] },
+  { name:"hot",      cols:[[255,0,64],[255,107,0],[255,210,0],[255,60,140]] },
+  { name:"ice",      cols:[[0,255,240],[61,91,255],[176,247,255],[130,255,200]] },
+  { name:"acid",     cols:[[170,255,0],[0,255,163],[255,0,224],[0,200,255]] }
+];
+const HEART_COL = [255, 42, 132];
+
+/* ---------- state ---------- */
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d", { alpha:false });
+const scene = document.createElement("canvas");
+const sctx = scene.getContext("2d");
+const hud = document.getElementById("hud");
+
+const S = {
+  count: 34,
+  speed: 1.0,
+  size:  1.0,
+  trail: 0.30,
+  pal:   0,
+  paused:false,
+  audio: false,
+  level: 0,
+  bias:  0,          // -1 force signs, +1 force hearts, 0 free
+  u:     0,
+  W:0, H:0, dpr:1
+};
+if (RENDER){ document.body.classList.add("render"); }
+
+let signs = [];
+let MARGIN = 200, TW = 0, TH = 0;
+
+function build(seed){
+  const rnd = mulberry32(seed);
+  const base = Math.min(S.W, S.H);
+  signs = [];
+  for (let i = 0; i < 90; i++){                  // pool; only `count` are drawn
+    const kx = (rnd() < 0.12 ? 0 : (1 + ((rnd()*4)|0)) * (rnd()<0.5?-1:1));
+    let ky = ((rnd()*3)|0) - 1;
+    if (kx === 0 && ky === 0) ky = 1;
+    signs.push({
+      ox: rnd(), oy: rnd(),
+      kx, ky,
+      sc: (0.07 + rnd()*0.14) * base,
+      col: (rnd()*4)|0,
+      rotK: rnd() < 0.65 ? 0 : (rnd()<0.5?-1:1),
+      rot0: (rnd()-0.5) * 0.5,
+      wobK: 1 + ((rnd()*3)|0),
+      wobA: 0.02 + rnd()*0.07,
+      mK: 1 + ((rnd()*3)|0),
+      mPh: rnd(),
+      pulseK: 2 + ((rnd()*6)|0),
+      pulsePh: rnd(),
+      alpha: 0.55 + rnd()*0.45
+    });
+  }
+}
+
+function resize(w, h, dpr){
+  S.dpr = dpr; S.W = w; S.H = h;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  cv.style.width = w+"px"; cv.style.height = h+"px";
+  scene.width = cv.width; scene.height = cv.height;
+  MARGIN = Math.min(w,h) * 0.18;
+  TW = w + MARGIN*2; TH = h + MARGIN*2;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,w,h);
+  build(SEED0);
+}
+
+/* ---------- morph timing ---------- */
+const ease = t => t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+function morphAt(p){                      // p in [0,1) → 0 = sign, 1 = heart
+  p -= Math.floor(p);
+  if (p < 0.52) return 0;
+  if (p < 0.62) return ease((p-0.52)/0.10);
+  if (p < 0.86) return 1;
+  return 1 - ease((p-0.86)/0.14);
+}
+
+/* ---------- drawing ---------- */
+function drawSign(g, s, u, lvl){
+  const x = ((s.ox + s.kx*u) % 1 + 1) % 1 * TW - MARGIN;
+  const y = ((s.oy + s.ky*u) % 1 + 1) % 1 * TH - MARGIN;
+
+  let m = morphAt(s.mPh + s.mK*u);
+  if (S.bias > 0) m = 1; else if (S.bias < 0) m = 0;
+
+  const wob   = Math.sin((s.wobK*u + s.mPh) * Math.PI*2) * s.wobA;
+  const pulse = 1 + 0.05*Math.sin((s.pulseK*u + s.pulsePh) * Math.PI*2)
+                  + 0.10*Math.sin(m*Math.PI)               // little pop mid-morph
+                  + lvl*0.35;
+  const sc  = s.sc * S.size * pulse;
+  const rot = s.rot0 + s.rotK*u*Math.PI*2 + wob;
+
+  const pal = PALETTES[S.pal].cols[s.col];
+  const r = pal[0] + (HEART_COL[0]-pal[0])*m;
+  const gg= pal[1] + (HEART_COL[1]-pal[1])*m;
+  const b = pal[2] + (HEART_COL[2]-pal[2])*m;
+  const a = s.alpha;
+
+  g.save();
+  g.translate(x, y);
+  g.rotate(rot);
+  g.scale(sc, -sc);                        // flip: shape data is y-up
+
+  g.beginPath();
+  for (let i = 0; i < NPTS; i++){
+    const A = SHAPE_A[i], B = SHAPE_B[i];
+    const px = A[0] + (B[0]-A[0])*m;
+    const py = A[1] + (B[1]-A[1])*m;
+    if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+  }
+  g.closePath();
+  g.restore();
+
+  g.fillStyle   = `rgba(${r|0},${gg|0},${b|0},${0.28*a})`;
+  g.strokeStyle = `rgba(${Math.min(255,r+70)|0},${Math.min(255,gg+70)|0},${Math.min(255,b+70)|0},${a})`;
+  g.lineWidth   = Math.max(1.1, sc*0.016);
+  g.lineJoin = "round";
+  g.fill();
+  g.stroke();
+}
+
+function frame(u, lvl){
+  const w = S.W, h = S.H;
+
+  // trails
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = `rgba(0,0,0,${S.trail})`;
+  ctx.fillRect(0,0,w,h);
+
+  // shapes onto the offscreen scene
+  sctx.setTransform(S.dpr,0,0,S.dpr,0,0);
+  sctx.clearRect(0,0,w,h);
+  const n = Math.min(S.count, signs.length);
+  for (let i = 0; i < n; i++) drawSign(sctx, signs[i], u, lvl);
+
+  // composite: crisp pass + two blurred bloom passes, all additive
+  ctx.globalCompositeOperation = "lighter";
+  ctx.filter = "none";
+  ctx.drawImage(scene, 0, 0, w, h);
+  ctx.globalAlpha = 0.55;
+  ctx.filter = `blur(${Math.round(Math.min(w,h)*0.012)}px)`;
+  ctx.drawImage(scene, 0, 0, w, h);
+  ctx.globalAlpha = 0.35;
+  ctx.filter = `blur(${Math.round(Math.min(w,h)*0.045)}px)`;
+  ctx.drawImage(scene, 0, 0, w, h);
+  ctx.globalAlpha = 1;
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* ---------- audio (live only) ---------- */
+let analyser = null, adata = null;
+async function toggleAudio(){
+  if (analyser){ analyser = null; S.audio = false; S.level = 0; return; }
+  try {
+    const st = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ac.createMediaStreamSource(st);
+    analyser = ac.createAnalyser();
+    analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.75;
+    src.connect(analyser);
+    adata = new Uint8Array(analyser.frequencyBinCount);
+    S.audio = true;
+  } catch(e){ S.audio = false; analyser = null; }
+}
+function readLevel(){
+  if (!analyser) return 0;
+  analyser.getByteFrequencyData(adata);
+  let sum = 0, N = Math.floor(adata.length * 0.25);   // low/mid weighted
+  for (let i = 0; i < N; i++) sum += adata[i];
+  const v = (sum / N) / 255;
+  return Math.max(0, (v - 0.12) * 1.6);
+}
+
+/* ---------- live loop ---------- */
+let last = performance.now();
+function tick(now){
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  if (!S.paused){
+    const target = readLevel();
+    S.level += (target - S.level) * 0.25;
+    S.u += dt * S.speed / 18;              // 18 s per full cycle at speed 1
+    frame(S.u, S.level);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------- controls ---------- */
+addEventListener("keydown", e => {
+  const k = e.key;
+  if (k === " "){ S.paused = !S.paused; last = performance.now(); e.preventDefault(); }
+  else if (k === "ArrowRight") S.speed = Math.min(6, S.speed*1.18);
+  else if (k === "ArrowLeft")  S.speed = Math.max(0.05, S.speed/1.18);
+  else if (k === "ArrowUp")    S.count = Math.min(90, S.count+3);
+  else if (k === "ArrowDown")  S.count = Math.max(1, S.count-3);
+  else if (k >= "1" && k <= "4") S.pal = +k - 1;
+  else if (k === "t" || k === "T") S.trail = S.trail > 0.5 ? 0.03 : (S.trail < 0.05 ? 0.16 : (S.trail < 0.2 ? 0.35 : 0.9));
+  else if (k === "s" || k === "S") S.size = S.size > 1.7 ? 0.6 : S.size*1.25;
+  else if (k === "h" || k === "H") S.bias = S.bias === 1 ? 0 : 1;
+  else if (k === "g" || k === "G") S.bias = S.bias === -1 ? 0 : -1;
+  else if (k === "r" || k === "R") build((Math.random()*1e9)|0);
+  else if (k === "a" || k === "A") toggleAudio();
+  else if (k === "c" || k === "C") hud.classList.toggle("hide");
+  else if (k === "f" || k === "F"){
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.();
+  }
+});
+addEventListener("click", () => { if (!S.audio) toggleAudio(); });
+
+/* ---------- boot ---------- */
+if (RENDER){
+  const w = +(QS.get("w") || 1920), h = +(QS.get("h") || 1080);
+  resize(w, h, 1);
+  S.count = +(QS.get("count") || 30);
+  S.trail = +(QS.get("trail") || 0.16);
+  window.__step = i => frame(i / LOOPF, 0);
+  window.__set  = (k,v) => { S[k] = v; };
+  window.__ready = true;
+} else {
+  const fit = () => resize(innerWidth, innerHeight, Math.min(2, devicePixelRatio||1));
+  fit();
+  addEventListener("resize", fit);
+  requestAnimationFrame(tick);
+  setTimeout(() => hud.classList.add("hide"), 9000);
+  addEventListener("mousemove", () => {
+    hud.classList.remove("hide");
+    clearTimeout(window.__ht); window.__ht = setTimeout(()=>hud.classList.add("hide"), 4000);
+  });
+}
+})();
+</script>
+</body>
+</html>

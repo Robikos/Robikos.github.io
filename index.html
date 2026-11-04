@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robert Kostrzewski – AI projects, games & code</title>
+<meta name="description" content="Homepage of Robert Kostrzewski: AI projects, games and open-source repositories.">
+<style>
+  :root{--bg:#0f1220;--card:#181c30;--card2:#20253f;--text:#eceefa;--muted:#9aa1c4;--accent:#5eead4;--accent2:#a78bfa}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(1200px 600px at 50% -10%,#232a55 0,var(--bg) 60%);color:var(--text);line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px 60px}
+  header{text-align:center;padding:56px 0 28px}
+  .photo{width:170px;height:170px;border-radius:50%;object-fit:cover;object-position:50% 38%;border:4px solid var(--accent);box-shadow:0 0 0 8px rgba(94,234,212,.12),0 10px 40px rgba(0,0,0,.5)}
+  h1{margin:20px 0 6px;font-size:2.2rem}
+  .tag{color:var(--muted);max-width:560px;margin:0 auto}
+  .social{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .social a{padding:7px 16px;border-radius:999px;background:var(--card2);font-size:.9rem}
+  .social a:hover{background:var(--accent);color:#06241f}
+  h2{margin:44px 0 16px;font-size:1.3rem;display:flex;align-items:center;gap:10px}
+  h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--card2),transparent)}
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  .card{display:block;background:var(--card);border:1px solid #2a3054;border-radius:16px;padding:22px;transition:.2s}
+  .card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .card .ico{font-size:2rem}
+  .card h3{margin:10px 0 4px;font-size:1.15rem}
+  .card p{margin:0;color:var(--muted);font-size:.93rem}
+  .badge{display:inline-block;margin-top:12px;font-size:.75rem;padding:2px 10px;border-radius:999px;background:rgba(167,139,250,.18);color:var(--accent2)}
+  .small{display:flex;flex-wrap:wrap;gap:10px}
+  .small a{background:var(--card);border:1px solid #2a3054;border-radius:10px;padding:8px 14px;font-size:.88rem}
+  .small a:hover{border-color:var(--accent2);background:var(--card2)}
+  .small span{color:var(--muted);font-size:.75rem;margin-left:6px}
+  footer{margin-top:50px;text-align:center;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="photo" src="photo.jpg" alt="Robert Kostrzewski">
+    <h1>Hi, I'm Robert 👋</h1>
+    <p class="tag">I build AI projects, games and data tools. Here you'll find what I've made so far.</p>
+    <div class="social">
+      <a href="https://github.com/Robikos">GitHub</a>
+      <a href="https://play.unity.com/en/user/7541bf05-4832-4532-9876-69ce8938336f">Unity Play</a>
+    </div>
+  </header>
+
+  <h2>🤖 AI projects &amp; games</h2>
+  <div class="grid">
+    <a class="card" href="https://github.com/Robikos/rabaty">
+      <div class="ico">🏷️</div><h3>Rabaty</h3>
+      <p>Discount data pipeline and analysis tool.</p><span class="badge">AI / Python</span>
+    </a>
+    <a class="card" href="https://robikos.github.io/romanian-quiz/">
+      <div class="ico">🇪🇸</div><h3>Spanish quiz</h3>
+      <p>Interactive vocabulary quiz in the browser.</p><span class="badge">Web app</span>
+    </a>
+    <a class="card" href="https://robikos.github.io/warszawiak/">
+      <div class="ico">⚔️</div><h3>RPG game</h3>
+      <p>My role-playing game project.</p><span class="badge">Game</span>
+    </a>
+    <a class="card" href="viz/">
+      <div class="ico">💗</div><h3>Grudziądz → Hearts</h3>
+      <p>Generative VJ loop in the browser. <span onclick="event.preventDefault();location.href='viz/grudziadz-hearts-loop-1080p60.mp4'" style="text-decoration:underline">Watch the 1080p60 video</span></p><span class="badge">Visual art</span>
+    </a>
+  </div>
+
+  <h2>🎮 Unity games</h2>
+  <div class="grid">
+    <a class="card" href="https://play.unity.com/en/games/64eec6c5-6a56-4901-9454-8c486adfa9e7/mario-3d-with-robert">
+      <div class="ico">🍄</div><h3>Mario 3D with Robert</h3>
+      <p>Reconstruction of Mario in a 3D world with funny assets, including me.</p><span class="badge">Unity Play</span>
+    </a>
+    <a class="card" href="https://play.unity.com/en/games/54ab854a-52d6-4912-aaa5-e56756df903c/foxes">
+      <div class="ico">🦊</div><h3>Foxes</h3>
+      <p>Foxes game.</p><span class="badge">Unity Play</span>
+    </a>
+    <a class="card" href="https://play.unity.com/en/games/88cc0275-5332-409b-b209-8c7d1dbcd884/sandbox-world-with-robot">
+      <div class="ico">🤖</div><h3>Sandbox World with Robot</h3>
+      <p>Explore a sandbox world with a robot.</p><span class="badge">Unity Play</span>
+    </a>
+  </div>
+
+  <h2>📁 More from my GitHub</h2>
+  <div class="small">
+    <a href="https://github.com/Robikos/music-gpt2">music-gpt2<span>Python</span></a>
+    <a href="https://github.com/Robikos/kaggle-nlp">kaggle-nlp<span>Jupyter</span></a>
+    <a href="https://github.com/Robikos/sagemaker-ml">sagemaker-ml<span>ML</span></a>
+    <a href="https://github.com/Robikos/lambda-ml">lambda-ml<span>Python</span></a>
+    <a href="https://github.com/Robikos/vr-js">vr-js<span>JavaScript</span></a>
+    <a href="https://github.com/Robikos/fotoweb">fotoweb<span>Rails + Angular</span></a>
+    <a href="https://github.com/Robikos/TrackYourTime">TrackYourTime<span>Backbone.js</span></a>
+    <a href="https://github.com/Robikos/Old-Portfolio">Old-Portfolio<span>C#</span></a>
+    <a href="https://github.com/Robikos/bot-mieszkaniowy">bot-mieszkaniowy<span>Ruby</span></a>
+    <a href="https://github.com/Robikos/python-practice">python-practice<span>Python</span></a>
+    <a href="https://github.com/Robikos?tab=repositories">All repositories →</a>
+  </div>
+
+  <footer>© Robert Kostrzewski</footer>
+</div>
+</body>
+</html>
