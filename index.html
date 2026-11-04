@@ -23,6 +23,7 @@
   .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
   .card{display:block;background:var(--card);border:1px solid #2a3054;border-radius:16px;padding:22px;transition:.2s}
   .card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .thumb{display:block;width:calc(100% + 44px);margin:-22px -22px 14px;aspect-ratio:16/9;object-fit:cover;border-radius:16px 16px 0 0}
   .card .ico{font-size:2rem}
   .card h3{margin:10px 0 4px;font-size:1.15rem}
   .card p{margin:0;color:var(--muted);font-size:.93rem}
@@ -69,15 +70,15 @@
   <h2>🎮 Unity games</h2>
   <div class="grid">
     <a class="card" href="https://play.unity.com/en/games/64eec6c5-6a56-4901-9454-8c486adfa9e7/mario-3d-with-robert">
-      <div class="ico">🍄</div><h3>Mario 3D with Robert</h3>
+      <img class="thumb" src="img/mario.jpg" alt="Mario 3D with Robert screenshot" loading="lazy"><h3>Mario 3D with Robert</h3>
       <p>Reconstruction of Mario in a 3D world with funny assets, including me.</p><span class="badge">Unity Play</span>
     </a>
     <a class="card" href="https://play.unity.com/en/games/54ab854a-52d6-4912-aaa5-e56756df903c/foxes">
-      <div class="ico">🦊</div><h3>Foxes</h3>
+      <img class="thumb" src="img/foxes.jpg" alt="Foxes screenshot" loading="lazy"><h3>Foxes</h3>
       <p>Foxes game.</p><span class="badge">Unity Play</span>
     </a>
     <a class="card" href="https://play.unity.com/en/games/88cc0275-5332-409b-b209-8c7d1dbcd884/sandbox-world-with-robot">
-      <div class="ico">🤖</div><h3>Sandbox World with Robot</h3>
+      <img class="thumb" src="img/sandbox.jpg" alt="Sandbox World with Robot screenshot" loading="lazy"><h3>Sandbox World with Robot</h3>
       <p>Explore a sandbox world with a robot.</p><span class="badge">Unity Play</span>
     </a>
   </div>
